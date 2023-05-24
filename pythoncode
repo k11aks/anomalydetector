@@ -1,0 +1,54 @@
+import cv2
+import requests
+import numpy as np
+
+# Azure Custom Vision project details, Change the project_id and prediction_key
+project_id = 'YOUR PROJECT ID'
+prediction_key = 'YOUR PREDICTION KEY'
+custom_vision_api_url = f'https://southcentralus.api.cognitive.microsoft.com/customvision/v3.0/Prediction/ea1ce44f-8614-42ae-a705-2e7e308bdd2b/classify/iterations/Iteration2/image'
+
+# Set up camera
+video_capture = cv2.VideoCapture(2)
+
+# Set up alarm
+def raise_alarm():
+    print("FIRE DETECTED! Raising an alarm...")
+    # Your alarm implementation goes here
+
+# Process camera feed
+while True:
+    # Capture frame-by-frame
+    ret, frame = video_capture.read()
+
+    # Preprocess frame
+    resized_frame = cv2.resize(frame, (416, 416))
+    resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
+
+    # Prepare image for prediction
+    _, image_data = cv2.imencode('.jpg', resized_frame)
+    image_bytes = image_data.tobytes()
+
+    # Make prediction request to Azure Custom Vision
+    headers = {'Prediction-Key': prediction_key, 'Content-Type': 'application/octet-stream'}
+    response = requests.post(custom_vision_api_url, headers=headers, data=image_bytes)
+    result = response.json()
+
+    # Check if predictions are available in the response
+    if 'predictions' in result:
+        predictions = result['predictions']
+
+        # Check predictions for fire anomaly
+        for prediction in predictions:
+            if prediction['tagName'] == 'Fire' and prediction['probability'] >= 0.8:
+                raise_alarm()
+
+    # Display the resulting frame
+    cv2.imshow('Video Feed', frame)
+
+    # Exit on 'q' press
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the capture and close all windows
+video_capture.release()
+cv2.destroyAllWindows()
